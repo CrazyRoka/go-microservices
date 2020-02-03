@@ -1,4 +1,4 @@
-module github.com/RostyslavToch/shippy-service-consignment
+module github.com/RostyslavToch/go-microservices/shippy-service-consignment
 
 go 1.13
 
