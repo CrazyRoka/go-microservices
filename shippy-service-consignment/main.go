@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	pb "github.com/RostyslavToch/go-microservices/shippy-service-consignment/proto/consignment"
 	"github.com/micro/go-micro"
@@ -14,10 +15,14 @@ type repository interface {
 }
 
 type Repository struct {
+	mu           sync.RWMutex
 	consignments []*pb.Consignment
 }
 
 func (repo *Repository) Create(consignment *pb.Consignment) (*pb.Consignment, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+
 	updated := append(repo.consignments, consignment)
 	repo.consignments = updated
 	return consignment, nil
@@ -28,7 +33,8 @@ func (repo *Repository) GetAll() []*pb.Consignment {
 }
 
 type service struct {
-	repo repository
+	repo         repository
+	vesselClient vessel.VesselServiceClient
 }
 
 func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment, res *pb.Response) error {
