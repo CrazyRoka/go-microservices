@@ -3,67 +3,41 @@ package main
 import (
 	"context"
 	"fmt"
-	"sync"
-
 	pb "github.com/RostyslavToch/go-microservices/shippy-service-consignment/proto/consignment"
+	"github.com/RostyslavToch/go-microservices/shippy-service-vessel/proto/vessel"
 	"github.com/micro/go-micro"
+	"log"
+	"os"
 )
 
-type repository interface {
-	Create(*pb.Consignment) (*pb.Consignment, error)
-	GetAll() []*pb.Consignment
-}
-
-type Repository struct {
-	mu           sync.RWMutex
-	consignments []*pb.Consignment
-}
-
-func (repo *Repository) Create(consignment *pb.Consignment) (*pb.Consignment, error) {
-	repo.mu.Lock()
-	defer repo.mu.Unlock()
-
-	updated := append(repo.consignments, consignment)
-	repo.consignments = updated
-	return consignment, nil
-}
-
-func (repo *Repository) GetAll() []*pb.Consignment {
-	return repo.consignments
-}
-
-type service struct {
-	repo         repository
-	vesselClient vessel.VesselServiceClient
-}
-
-func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment, res *pb.Response) error {
-	consignment, err := s.repo.Create(req)
-	if err != nil {
-		return err
-	}
-
-	res.Created = true
-	res.Consignment = consignment
-	return nil
-}
-
-func (s *service) GetConsignments(ctx context.Context, req *pb.GetRequest, res *pb.Response) error {
-	consignments := s.repo.GetAll()
-	res.Consignments = consignments
-	return nil
-}
+const (
+	defaultHost = "datastore:27017"
+)
 
 func main() {
-	repo := &Repository{}
-
 	srv := micro.NewService(
 		micro.Name("shippy.service.consignment"),
 	)
-
 	srv.Init()
 
-	pb.RegisterShippingServiceHandler(srv.Server(), &service{repo})
+	uri := os.Getenv("DB_HOST")
+	if uri != "" {
+		uri = defaultHost
+	}
+
+	client, err := CreateClient(context.Background(), uri, 0)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer client.Disconnect(context.Background())
+
+	consignmentCollection := client.Database("shippy").Collection("consignments")
+	repository := &MongoRepository{consignmentCollection}
+
+	vesselClient := vessel.NewVesselServiceClient("shippy.service.vessel", srv.Client())
+	h := &handler{repository, vesselClient}
+
+	pb.RegisterShippingServiceHandler(srv.Server(), h)
 
 	if err := srv.Run(); err != nil {
 		fmt.Println(err)
