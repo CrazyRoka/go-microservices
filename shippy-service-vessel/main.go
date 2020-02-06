@@ -2,54 +2,47 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/RostyslavToch/go-microservices/shippy-service-vessel/proto/vessel"
-	"github.com/micro/go-micro"
+	micro "github.com/micro/go-micro/v2"
 )
 
-type Repository interface {
-	FindAvailable(*vessel.Specification) (*vessel.Vessel, error)
-}
+const (
+	defaultHost = "mongodb://datastore:27017"
+)
 
-type VesselRepository struct {
-	vessels []*vessel.Vessel
-}
-
-func (repo *VesselRepository) FindAvailable(spec *vessel.Specification) (*vessel.Vessel, error) {
-	for _, vessel := range repo.vessels {
-		if spec.Capacity <= vessel.Capacity && spec.MaxWeight <= vessel.MaxWeight {
-			return vessel, nil
-		}
+func createDummyData(repo repository) {
+	vessels := []*Vessel{
+		{ID: "vessel001", Name: "Kane's Salty Secret", MaxWeight: 200000, Capacity: 500},
 	}
-	return nil, errors.New("No vessel found by that spec")
-}
-
-type service struct {
-	repo Repository
-}
-
-func (s *service) FindAvailable(ctx context.Context, req *vessel.Specification, res *vessel.Response) error {
-	vessels, err := s.repo.FindAvailable(req)
-	if err != nil {
-		return err
+	for _, v := range vessels {
+		repo.Create(context.Background(), v)
 	}
-
-	res.Vessel = vessels
-	return nil
 }
 
 func main() {
-	vessels := []*vessel.Vessel{
-		&vessel.Vessel{Id: "vessel001", Name: "Boaty McBoatface", MaxWeight: 200000, Capacity: 500},
-	}
-	repo := &VesselRepository{vessels}
-
 	srv := micro.NewService(micro.Name("shippy.service.vessel"))
 	srv.Init()
 
-	vessel.RegisterVesselServiceHandler(srv.Server(), &service{repo})
+	uri := os.Getenv("DB_HOST")
+	if uri == "" {
+		uri = defaultHost
+	}
+	client, err := CreateClient(context.Background(), uri)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer client.Disconnect(context.TODO())
+
+	vesselCollection := client.Database("shippy").Collection("vessel")
+	repository := &VesselRepository{vesselCollection}
+
+	createDummyData(repository)
+
+	vessel.RegisterVesselServiceHandler(srv.Server(), &handler{repository})
 
 	if err := srv.Run(); err != nil {
 		fmt.Println(err)

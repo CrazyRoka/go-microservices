@@ -1,39 +1,44 @@
-version: '3.5'
+version: '3.1'
 
 services:
-  shippy-service-consignment:
-    restart: always
-    container_name: "shippy-service-consignment"
-    build: ./shippy-service-consignment
-    ports:
-      - 50051
-    links:
-      - datastore
-    depends_on:
-      - datastore
+
+  consignment-cli:
+    build: ./shippy-cli-consignment
     networks:
       - shippy-backend-tier
       - consignment-tier
+
+  consignment-service:
+    build: ./shippy-service-consignment
+    ports:
+      - 50051:50051
     environment:
+      MICRO_SERVER_ADDRESS: ":50051"
       DB_HOST: "mongodb://datastore:27017"
-      MICRO_ADDRESS: ":50051"
+    networks:
+      - shippy-backend-tier
+      - consignment-tier
+
+  vessel-service:
+    build: ./shippy-service-vessel
+    ports:
+      - 50052:50051
+    environment:
+      MICRO_SERVER_ADDRESS: ":50051"
+      DB_HOST: "mongodb://datastore:27017"
+    networks:
+      - shippy-backend-tier
+      - consignment-tier
 
   datastore:
-    image: mongo:latest
-    container_name: "datastore"
-    environment:
-      - MONGO_DATA_DIR=/data/db
-      - MONGO_LOG_DIR=/dev/null
+    image: mongo
+    ports:
+      - 27017:27017
     volumes:
-      - ./data/db:/data/db
+      - ./data/db:/data/db # ensures data persistence between restarting
     networks:
       - consignment-tier
-    ports:
-      - 27017
-    command: mongod --logpath=/dev/null
 
 networks:
   consignment-tier:
-    name: consignment-tier
   shippy-backend-tier:
-    name: shippy-backend-tier

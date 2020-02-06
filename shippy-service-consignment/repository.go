@@ -91,7 +91,7 @@ type MongoRepository struct {
 	collection *mongo.Collection
 }
 
-func (repository *MongoRepository) Create(ctx context.Context, consignment Consignment) error {
+func (repository *MongoRepository) Create(ctx context.Context, consignment *Consignment) error {
 	_, err := repository.collection.InsertOne(ctx, consignment)
 	return err
 }

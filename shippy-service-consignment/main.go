@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultHost = "datastore:27017"
+	defaultHost = "mongodb://datastore:27017"
 )
 
 func main() {
@@ -21,11 +21,11 @@ func main() {
 	srv.Init()
 
 	uri := os.Getenv("DB_HOST")
-	if uri != "" {
+	if uri == "" {
 		uri = defaultHost
 	}
 
-	client, err := CreateClient(context.Background(), uri, 0)
+	client, err := CreateClient(context.Background(), uri)
 	if err != nil {
 		log.Panic(err)
 	}

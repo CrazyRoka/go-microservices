@@ -7,12 +7,12 @@ import (
 	"github.com/RostyslavToch/go-microservices/shippy-service-vessel/proto/vessel"
 )
 
-type service struct {
+type handler struct {
 	repository
 	vesselClient vessel.VesselServiceClient
 }
 
-func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment, res *pb.Response) error {
+func (s *handler) CreateConsignment(ctx context.Context, req *pb.Consignment, res *pb.Response) error {
 	vesselResponse, err := s.vesselClient.FindAvailable(context.Background(), &vessel.Specification{
 		MaxWeight: req.Weight,
 		Capacity:  int32(len(req.Containers)),
@@ -37,8 +37,8 @@ func (s *service) CreateConsignment(ctx context.Context, req *pb.Consignment, re
 	return nil
 }
 
-func (s *service) GetConsignments(ctx context.Context, req *pb.GetRequest, res *pb.Response) error {
-	consignments, err := s.repository.GetAll()
+func (s *handler) GetConsignments(ctx context.Context, req *pb.GetRequest, res *pb.Response) error {
+	consignments, err := s.repository.GetAll(ctx)
 	if err != nil {
 		return err
 	}
